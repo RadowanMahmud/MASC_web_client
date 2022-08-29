@@ -38,10 +38,12 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'modules.CipherManager',
     'modules.home',
     'modules.MascLab',
     'modules.MascEngine',
     'modules.UserAuthentication',
+    'modules.UserProfile',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
