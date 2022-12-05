@@ -22,7 +22,7 @@ body {
     margin-left: 3%;
 }
 .welcome{
-    margin-top: 3%;
+    margin-top: 2%;
 }
 
 .card {
@@ -54,6 +54,10 @@ body {
 }
 .l-bg-yellow-dark {
     background: #F0EED1 !important;
+    color: #000;
+}
+.l-bg-custom-dark {
+    background: #C5C9C8 !important;
     color: #000;
 }
 
@@ -91,6 +95,10 @@ body {
     background: linear-gradient(135deg, #289cf5, #84c0ec) !important;
     color: #fff;
 }
+.l-bg-green {
+    background: linear-gradient(135deg, #289cf5, #84c0ec) !important;
+    color: #fff;
+}
 .long {
     width: 250px;
 }
@@ -99,4 +107,7 @@ body {
 }
 .bg-warning{
     color: black;
+}
+.home-button{
+    width: 100px;
 }

@@ -1,4 +1,12 @@
+import os
+import zipfile
 from asyncio import subprocess
+from io import BytesIO
+from shutil import make_archive
+from wsgiref.util import FileWrapper
+from zipfile import ZipFile
+
+from django.http import HttpResponse
 from django.shortcuts import render
 
 # Create your views here.
@@ -13,6 +21,7 @@ from modules.MascLab.forms import IntOperatorForm
 from modules.MascLab.forms import InterProcOperatorForm
 from modules.MascLab.forms import NullOperatorForm
 from modules.MascLab.forms import CheckSave
+from modules.pythonAssets.model import MASCLabAsset
 
 
 async def run(cmd):
@@ -62,7 +71,7 @@ def read_selected_file(f):
         item = destination.read().split("\n")
     content = ''
     for line in item:
-        if 'mutantGeneration' in line or 'excludedOperators' in line:
+        if 'mutantGeneration' in line or 'excludedOperators' in line or 'automatedAnalysis' in line:
             continue
         else:
             content = content + line + '\n'
@@ -73,14 +82,16 @@ def sanitize_content(initial_content):
     item = initial_content.split("\n")
     content = ''
     for line in item:
-        if 'mutantGeneration' in line or 'excludedOperators' in line:
+        if 'mutantGeneration' in line or 'excludedOperators' in line or 'automatedAnalysis' in content:
             continue
         else:
             content = content + line + '\n'
-    if 'automatedAnalysis' in content:
-        return content
-    else:
-        return 'automatedAnalysis = false' + '\n'+ content
+    return content
+    # if 'automatedAnalysis' in content:
+    #     return content
+    # else:
+    #     return 'automatedAnalysis = false' + '\n' + content
+
 
 def read_file(f):
     with open('./modules/static/properties/' + f, 'r') as destination:
@@ -134,11 +145,13 @@ def input_Form(request):
             "content": fileinput,
             "selected_type": selected_operator,
             'form': form,
-            "save_check_box": checkform
+            "save_check_box": checkform,
+            "assets": MASCLabAsset
         })
-    records = PropertiesList.objects.all().values()
+    records = PropertiesList.objects.filter(scope='MAIN')
     return render(request, "masc-lab/input-form.html", {
-        "properties_file": records
+        "properties_file": records,
+        "assets": MASCLabAsset
     })
 
 
@@ -175,8 +188,8 @@ def set_up(request):
                 excluded_operator = ''.join(operators)
         else:
             excluded_operator = "empty"
-        initial = 'mutantGeneration = true' + '\n' + 'excludedOperators=' + excluded_operator + '\n'
-        contents = initial+sanitize_content(file_content)
+        initial = 'mutantGeneration = true' + '\n' + 'automatedAnalysis = false' + '\n' + 'excludedOperators=' + excluded_operator + '\n'
+        contents = initial + sanitize_content(file_content)
         update_file_content(properties, contents)
         p = asyncio.run(
             run('java -jar ./modules/static/properties/app-all.jar ./modules/static/properties/' + properties))
@@ -187,5 +200,39 @@ def set_up(request):
         return render(request, "masc-lab/lab.html", {
             "input_code": input_code,
             "output_code": output_code,
-            "stdOut": stdOut
+            "stdOut": stdOut,
+            "assets": MASCLabAsset
         })
+
+
+def get_output_paths_for_download():
+    outputPaths = []
+    with open('./MainScope.log', 'r') as destination:
+        contents = destination.readlines()
+    for line in contents:
+        if "[OutputPath]" in line:
+            x = line.split('#')
+            path = x[len(x) - 1].strip('\n')
+            h = path.split('/')
+            h.pop()
+            outputPaths.append("/".join(h))
+    return outputPaths
+
+
+def download(request):
+    folders = get_output_paths_for_download()
+    byte_data = BytesIO()
+    zip_file = zipfile.ZipFile(byte_data, "w")
+
+    for folder in folders:
+        for dirpath, dirnames, filenames in os.walk(folder):
+            for filename in filenames:
+                zip_file.write(
+                    os.path.join(dirpath, filename),
+                    os.path.relpath(os.path.join(dirpath, filename), os.path.join(folders[0], '../..')))
+    zip_file.close()
+
+    response = HttpResponse(byte_data.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename=mutation.zip'
+
+    return response
